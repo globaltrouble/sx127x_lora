@@ -152,9 +152,9 @@ use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::spi::{Mode, Phase, Polarity};
 
 mod register;
+use self::register::IrqMask;
 use self::register::PaConfig;
 use self::register::Register;
-use self::register::IRQ;
 
 /// Provides the necessary SPI mode configuration for the radio
 pub const MODE: Mode = Mode {
@@ -338,7 +338,7 @@ where
     /// Returns the contents of the fifo as a fixed 255 u8 array. This should only be called if there is a
     /// new packet ready to be read.
     pub fn read_packet(&mut self) -> Result<[u8; 255], Error<E, CS::Error, RESET::Error>> {
-        let mut buffer = [0 as u8; 255];
+        let mut buffer = [0_u8; 255];
         self.clear_irq()?;
         let size = self.get_ready_packet_size()?;
         let fifo_addr = self.read_register(Register::RegFifoRxCurrentAddr.addr())?;
@@ -365,9 +365,8 @@ where
         {
             Ok(true)
         } else {
-            if (self.read_register(Register::RegIrqFlags.addr())? & IRQ::IrqTxDoneMask.addr()) == 1
-            {
-                self.write_register(Register::RegIrqFlags.addr(), IRQ::IrqTxDoneMask.addr())?;
+            if (self.read_register(Register::RegIrqFlags.addr())? & IrqMask::TxDone.addr()) == 1 {
+                self.write_register(Register::RegIrqFlags.addr(), IrqMask::TxDone.addr())?;
             }
             Ok(false)
         }
@@ -660,7 +659,7 @@ where
     fn set_ldo_flag(&mut self) -> Result<(), Error<E, CS::Error, RESET::Error>> {
         let sw = self.get_signal_bandwidth()?;
         // Section 4.1.1.5
-        let symbol_duration = 1000 / (sw / ((1 as i64) << self.get_spreading_factor()?));
+        let symbol_duration = 1000 / (sw / ((1_i64) << self.get_spreading_factor()?));
 
         // Section 4.1.1.6
         let ldo_on = symbol_duration > 16;
