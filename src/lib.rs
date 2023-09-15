@@ -146,7 +146,7 @@
 //! device-to-device basis by retrieving a packet with the `read_packet()` function.
 
 use bit_field::BitField;
-use embedded_hal::blocking::delay::DelayMs;
+use embedded_hal::blocking::delay::DelayUs;
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::spi::{Mode, Phase, Polarity};
@@ -204,7 +204,7 @@ where
         cs: CS,
         reset: RESET,
         frequency: i64,
-        delay: &mut dyn DelayMs<u8>,
+        delay: &mut dyn DelayUs<u16>,
     ) -> Result<Self, Error<E, CS::Error, RESET::Error>> {
         let mut sx127x = LoRa {
             spi,
@@ -215,9 +215,9 @@ where
             mode: RadioMode::Sleep,
         };
         sx127x.reset.set_low().map_err(Reset)?;
-        delay.delay_ms(10);
+        delay.delay_us(10_000);
         sx127x.reset.set_high().map_err(Reset)?;
-        delay.delay_ms(10);
+        delay.delay_us(10_000);
         let version = sx127x.read_register(Register::RegVersion.addr())?;
         if version == VERSION_CHECK {
             sx127x.set_mode(RadioMode::Sleep)?;
@@ -241,7 +241,7 @@ where
     pub fn configure<F>(
         &mut self,
         modifier: F,
-        delay: &mut dyn DelayMs<u8>,
+        delay: &mut dyn DelayUs<u16>,
     ) -> Result<(), Error<E, CS::Error, RESET::Error>>
     where
         F: FnOnce(&mut Self) -> Result<(), Error<E, CS::Error, RESET::Error>>,
@@ -322,7 +322,7 @@ where
     pub fn poll_irq(
         &mut self,
         timeout_ms: Option<i32>,
-        delay: &mut dyn DelayMs<u8>,
+        delay: &mut dyn DelayUs<u16>,
     ) -> Result<usize, Error<E, CS::Error, RESET::Error>> {
         self.set_mode(RadioMode::RxContinuous)?;
         match timeout_ms {
@@ -334,7 +334,7 @@ where
                         break packet_ready;
                     }
                     count += 1;
-                    delay.delay_ms(1);
+                    delay.delay_us(100);
                 };
                 if packet_ready {
                     self.clear_irq()?;
@@ -345,7 +345,7 @@ where
             }
             None => {
                 while !self.read_register(Register::RegIrqFlags.addr())?.get_bit(6) {
-                    delay.delay_ms(100);
+                    delay.delay_us(50_000);
                 }
                 self.clear_irq()?;
                 Ok(self.read_register(Register::RegRxNbBytes.addr())? as usize)
